@@ -1,0 +1,64 @@
+﻿---
+- name: Install docker
+  hosts: all
+  become: true
+  tasks:
+
+  - name: add docker engine repo key
+    apt_key:
+      keyserver: p80.pool.sks-keyservers.net
+      id: 58118E89F3A912897C070ADBF76221572C52609D
+      state: present
+
+  - name: add docker engine repo
+    apt_repository:
+      repo: deb https://apt.dockerproject.org/repo ubuntu-xenial main
+      state: present
+      filename: docker
+      update_cache: yes
+
+  - name: install docker-engine
+    apt:
+      name: docker-engine
+      state: present
+      update_cache: yes
+
+  - name: install python-pip
+    apt:
+      name: python-pip
+      state: present
+      update_cache: yes
+
+  - name: install docker-py
+    pip:
+      name: docker-py
+
+- name: Install AWX from GitHub
+  hosts: all
+  become: true
+  become_method: sudo
+  tasks:
+
+  - name: Clone awx from github
+    git:
+      repo: https://github.com/ansible/awx.git
+      dest: /opt/awx/
+      version: devel
+
+  - name: Check to see if AWX is running on port 80 and returns a status 200
+    ignore_errors: true
+    uri:
+      url: http://localhost:80
+    register: localhost
+
+  - name: output status code
+    debug:
+      var: localhost.status
+
+  - name: Install and run AWX if it's not already running on port 80
+    command: ansible-playbook -i inventory install.yml
+    args:
+      chdir: /opt/awx/installer/
+    when:
+      - localhost is defined
+      - localhost.status != 200
